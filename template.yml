@@ -1,9 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: AWS Serverless Spring Boot 2 API - org.example::gm-face-match-engine-lambda
-Globals:
-  Api:
-    EndpointConfiguration: REGIONAL
+Description: AWS Serverless Spring Boot 2 Lambda - org.example::gm-face-match-engine-lambda
 
 Resources:
   GmFaceMatchEngineLambdaFunction:
@@ -13,18 +10,23 @@ Resources:
       Runtime: java21
       CodeUri: .
       MemorySize: 512
-      Policies: AWSLambdaBasicExecutionRole
       Timeout: 30
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - SQSPollerPolicy:
+            QueueName: gm-face-match-request-queue
+        - S3ReadPolicy:
+            BucketName: awoyomibucketdemo
       Events:
-        ProxyResource:
-          Type: Api
+        SqsEvent:
+          Type: SQS
           Properties:
-            Path: /{proxy+}
-            Method: any
+            Queue: https://sqs.us-east-1.amazonaws.com/980382773047/gm-face-match-request-queue
+            BatchSize: 5
 
 Outputs:
-  GmFaceMatchEngineLambdaApi:
-    Description: URL for application
-    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/ping'
+  GmFaceMatchEngineLambdaArn:
+    Description: ARN of the Lambda function
+    Value: !GetAtt GmFaceMatchEngineLambdaFunction.Arn
     Export:
-      Name: GmFaceMatchEngineLambdaApi
+      Name: GmFaceMatchEngineLambdaArn
