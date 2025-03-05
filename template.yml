@@ -3,6 +3,14 @@ Transform: AWS::Serverless-2016-10-31
 Description: AWS Serverless Spring Boot 2 Lambda - org.example::gm-face-match-engine-lambda
 
 Resources:
+  # Create the SQS Queue if it doesn't exist
+  GmFaceMatchRequestQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: gm-face-match-request-queue
+      VisibilityTimeout: 100
+
+  # Lambda Function
   GmFaceMatchEngineLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -10,7 +18,7 @@ Resources:
       Runtime: java21
       CodeUri: .
       MemorySize: 512
-      Timeout: 30
+      Timeout: 90
       Policies:
         - AWSLambdaBasicExecutionRole
         - SQSPollerPolicy:
@@ -21,8 +29,17 @@ Resources:
         SqsEvent:
           Type: SQS
           Properties:
-            Queue: https://sqs.us-east-1.amazonaws.com/980382773047/gm-face-match-request-queue
+            Queue: !GetAtt GmFaceMatchRequestQueue.Arn  # Reference the created queue
             BatchSize: 5
+      Environment:
+        Variables:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://postgresqlinstance.c2pcgeg0gpc2.us-east-1.rds.amazonaws.com:5432/postgres
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: postgres
+          HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+          AWS_S3_BUCKET_NAME: awoyomibucketdemo
+          AWS_S3_REGION: us-east-2
+    DependsOn: GmFaceMatchRequestQueue  # Ensure SQS is created before Lambda
 
 Outputs:
   GmFaceMatchEngineLambdaArn:
@@ -30,3 +47,9 @@ Outputs:
     Value: !GetAtt GmFaceMatchEngineLambdaFunction.Arn
     Export:
       Name: GmFaceMatchEngineLambdaArn
+
+  GmFaceMatchRequestQueueArn:
+    Description: ARN of the SQS Queue
+    Value: !GetAtt GmFaceMatchRequestQueue.Arn
+    Export:
+      Name: GmFaceMatchRequestQueueArn

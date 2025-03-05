@@ -15,7 +15,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.3</version>
+        <version>3.4.2</version>
         <relativePath/> <!-- Ensures it doesn't look for a local parent -->
     </parent>
 
@@ -26,11 +26,11 @@
 
     <dependencies>
         <!-- AWS Lambda and Serverless -->
-        <dependency>
-            <groupId>com.amazonaws.serverless</groupId>
-            <artifactId>aws-serverless-java-container-springboot3</artifactId>
-            <version>2.1.2</version>
-        </dependency>
+    <dependency>
+        <groupId>com.amazonaws.serverless</groupId>
+        <artifactId>aws-serverless-java-container-springboot3</artifactId>
+        <version>2.1.2</version>
+    </dependency>
 
         <!-- Lombok (provided by Spring Boot parent) -->
         <dependency>
@@ -59,10 +59,43 @@
             <version>3.12.0</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>5.0.1</version>
+        </dependency>
+
+
         <!-- Actuator for monitoring -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+        <exclusions>
+            <exclusion>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-tomcat</artifactId>
+            </exclusion>
+        </exclusions>
+    </dependency>
+    <dependency>
+        <groupId>com.amazonaws.serverless</groupId>
+        <artifactId>aws-serverless-java-container-core</artifactId>
+        <version>2.1.2</version>
+        <classifier>tests</classifier>
+        <type>test-jar</type>
+        <scope>test</scope>
+    </dependency>
+
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 

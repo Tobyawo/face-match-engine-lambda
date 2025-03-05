@@ -4,7 +4,7 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gm.facematch.engine.data.MatchRequestDto;
-import com.gm.facematch.engine.data.MatchResponseDto;
+import com.gm.facematch.engine.entity.MatchRecord;
 import com.gm.facematch.engine.service.S3Service;
 
 import java.util.List;
@@ -36,8 +36,9 @@ public class StreamLambdaHandler implements RequestHandler<Map<String, Object>, 
 
                         MatchRequestDto request = convertJsonToDto(body);
 
-                        MatchResponseDto responseDto = s3Service.processMatchRequest(request);
-                        context.getLogger().log("Response : " + responseDto);
+                        MatchRecord responseDto = s3Service.processMatchRequest(request);
+                        context.getLogger().log("Response description : " + responseDto.getDescription() +
+                                " transactionId " + responseDto.getTransactionId() + " Match score " + responseDto.getMatchScore());
                     } else {
                         context.getLogger().log("Invalid record type: " + recordObj.getClass());
                     }
