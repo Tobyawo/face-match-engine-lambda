@@ -10,6 +10,44 @@ Resources:
       QueueName: gm-face-match-request-queue
       VisibilityTimeout: 100
 
+  # SNS Topic (Created by Lambda)
+  GmFaceMatchResultsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "Face Match Results"
+
+  # IAM Role for Lambda
+  GmFaceMatchEngineLambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action: "sts:AssumeRole"
+            Principal:
+              Service: "lambda.amazonaws.com"
+      Policies:
+        - PolicyName: GmFaceMatchEngineLambdaPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - sns:Publish
+                  - sns:Subscribe
+                Resource: !Ref GmFaceMatchResultsTopic
+              - Effect: "Allow"
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt GmFaceMatchRequestQueue.Arn
+              - Effect: "Allow"
+                Action:
+                  - s3:GetObject
+                Resource: arn:aws:s3:::awoyomibucketdemo/*
+
   # Lambda Function
   GmFaceMatchEngineLambdaFunction:
     Type: AWS::Serverless::Function
@@ -19,6 +57,7 @@ Resources:
       CodeUri: .
       MemorySize: 512
       Timeout: 90
+      Role: !GetAtt GmFaceMatchEngineLambdaFunctionRole.Arn
       Policies:
         - AWSLambdaBasicExecutionRole
         - SQSPollerPolicy:
@@ -29,7 +68,7 @@ Resources:
         SqsEvent:
           Type: SQS
           Properties:
-            Queue: !GetAtt GmFaceMatchRequestQueue.Arn  # Reference the created queue
+            Queue: !GetAtt GmFaceMatchRequestQueue.Arn
             BatchSize: 5
       Environment:
         Variables:
@@ -39,6 +78,7 @@ Resources:
           HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
           AWS_S3_BUCKET_NAME: awoyomibucketdemo
           AWS_S3_REGION: us-east-2
+          SNS_TOPIC_ARN: !Ref GmFaceMatchResultsTopic  # Pass the SNS topic ARN to Lambda
     DependsOn: GmFaceMatchRequestQueue  # Ensure SQS is created before Lambda
 
 Outputs:
@@ -53,3 +93,9 @@ Outputs:
     Value: !GetAtt GmFaceMatchRequestQueue.Arn
     Export:
       Name: GmFaceMatchRequestQueueArn
+
+  GmFaceMatchResultsTopicArn:
+    Description: ARN of the SNS Topic
+    Value: !Ref GmFaceMatchResultsTopic
+    Export:
+      Name: GmFaceMatchResultsTopicArn

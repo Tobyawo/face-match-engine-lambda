@@ -58,24 +58,26 @@ public class S3Service {
             if (base64Image1 == null || base64Image2 == null) {
                 record.setCode(-1);
                 record.setDescription("Failed to download one or both images.");
-            }
-            else {
+            } else {
                 double similarityScore = calculateSimilarity(base64Image1, base64Image2);
                 record.setMatchScore(similarityScore);
             }
 
-            try (Connection connection = dataSource.getConnection()) {
-                saveMatchResultToDB(connection, record);
-            }
-            catch (Exception e) {
-                record.setCode(-2);
-                record.setDescription("Failed to save match result to database." + e.getMessage());
-            }
-
-
         } catch (Exception e) {
             record.setCode(-3);
             record.setDescription("Error processing image match request: " + e.getMessage());
+        }
+
+
+        try (Connection connection = dataSource.getConnection()) {
+            saveMatchResultToDB(connection, record);
+            if (record.getUserName() != null && !record.getUserName().isEmpty()) {
+                SNSService snsService = new SNSService();
+                snsService.publishToSNS(record);
+            }
+        } catch (Exception e) {
+            record.setCode(-2);
+            record.setDescription("Failed to save match result to database." + e.getMessage());
         }
 
         return record;
