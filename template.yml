@@ -36,6 +36,7 @@ Resources:
                 Action:
                   - sns:Publish
                   - sns:Subscribe
+                  - sns:ListSubscriptionsByTopic  #  Added permission to check email subscriptions
                 Resource: !Ref GmFaceMatchResultsTopic
               - Effect: "Allow"
                 Action:

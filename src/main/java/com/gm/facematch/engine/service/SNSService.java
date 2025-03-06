@@ -13,12 +13,11 @@ import software.amazon.awssdk.services.sns.model.*;
 public class SNSService {
 
     private final SnsClient snsClient;
-
     private final String topicArn = System.getenv("SNS_TOPIC_ARN");
 
     public SNSService() {
         this.snsClient = SnsClient.builder()
-                .region(Region.US_EAST_1)  //  Set AWS Region (Change if needed)
+                .region(Region.US_EAST_1)  // Set AWS Region (Change if needed)
                 .credentialsProvider(DefaultCredentialsProvider.create())
                 .build();
     }
@@ -28,21 +27,33 @@ public class SNSService {
             throw new IllegalStateException("SNS_TOPIC_ARN environment variable is not set");
         }
 
-        // Check if user is already subscribed before subscribing
-        if (!isEmailConfirmedSubscriber(record.getUserName())) {
+        SubscriptionStatus status = getEmailSubscriptionStatus(record.getUserName());
+
+        log.info("Email Subscription status ===== " + status.name());
+
+        // If not subscribed or pending, attempt to subscribe the email
+        if (status == SubscriptionStatus.NOT_SUBSCRIBED) {
             subscribeEmailToTopic(topicArn, record.getUserName());
+            log.info("Subscription initiated for email: {}", record.getUserName());
+            return;
         }
 
-        String message = String.format("TransactionId: %s, Match Score: %s, User: %s",
-                record.getTransactionId(), record.getMatchScore(), record.getUserName());
 
-        PublishRequest publishRequest = PublishRequest.builder()
-                .topicArn(topicArn)
-                .message(message)
-                .build();
+        // Only publish a notification if the email is confirmed
+        if (status == SubscriptionStatus.CONFIRMED) {
+            String message = String.format("TransactionId: %s, Match Score: %s, User: %s",
+                    record.getTransactionId(), record.getMatchScore(), record.getUserName());
 
-        snsClient.publish(publishRequest);
-        log.info(" Published message to SNS: {}", message);
+            PublishRequest publishRequest = PublishRequest.builder()
+                    .topicArn(topicArn)
+                    .message(message)
+                    .build();
+
+            snsClient.publish(publishRequest);
+            log.info("Published message to SNS: {}", message);
+        } else {
+            log.info("Skipping SNS publish. Subscription is still pending for email: {}", record.getUserName());
+        }
     }
 
     public void subscribeEmailToTopic(String topicArn, String email) {
@@ -53,10 +64,10 @@ public class SNSService {
                 .build();
 
         SubscribeResponse response = snsClient.subscribe(request);
-        log.info(" Subscription request sent! Subscription ARN: {}", response.subscriptionArn());
+        log.info("Subscription request sent! Subscription ARN: {}", response.subscriptionArn());
     }
 
-    private boolean isEmailConfirmedSubscriber(String email) {
+    private SubscriptionStatus getEmailSubscriptionStatus(String email) {
         try {
             ListSubscriptionsByTopicRequest listRequest = ListSubscriptionsByTopicRequest.builder()
                     .topicArn(topicArn)
@@ -64,15 +75,22 @@ public class SNSService {
 
             ListSubscriptionsByTopicResponse listResponse = snsClient.listSubscriptionsByTopic(listRequest);
 
-            return listResponse.subscriptions().stream()
-                    .anyMatch(sub -> sub.endpoint().equalsIgnoreCase(email)
-                            && "email".equals(sub.protocol())
-                            && "Confirmed".equalsIgnoreCase(sub.subscriptionArn())); // Subscription ARN is only set if confirmed
-
+            for (Subscription sub : listResponse.subscriptions()) {
+                if (sub.endpoint().equalsIgnoreCase(email) && "email".equals(sub.protocol())) {
+                    if (sub.subscriptionArn() == null || "PendingConfirmation".equals(sub.subscriptionArn())) {
+                        return SubscriptionStatus.PENDING;
+                    }
+                    return SubscriptionStatus.CONFIRMED;
+                }
+            }
+            return SubscriptionStatus.NOT_SUBSCRIBED;
         } catch (SnsException e) {
             log.error("Error checking SNS subscriptions: {}", e.getMessage());
-            return false;
+            return SubscriptionStatus.NOT_SUBSCRIBED;
         }
     }
 
+    private enum SubscriptionStatus {
+        NOT_SUBSCRIBED, PENDING, CONFIRMED
+    }
 }
